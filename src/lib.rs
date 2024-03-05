@@ -38,7 +38,6 @@ use sysinfo::{CpuExt, System, SystemExt};
 use utils::file_token;
 
 /// The components that can be used to build the HWID.
-
 #[derive(PartialEq, Eq, Hash)]
 pub enum HWIDComponent {
     /// System UUID
@@ -100,6 +99,7 @@ impl HWIDComponent {
 
 /// The encryptions that can be used to build the HWID.
 pub enum Encryption {
+    Noop,
     MD5,
     SHA256,
     SHA1,
@@ -112,6 +112,7 @@ type HmacSha256 = Hmac<Sha256>;
 impl Encryption {
     fn generate_hash(&self, key: &[u8], text: String) -> Result<String, HWIDError> {
         match self {
+            Encryption::Noop => Ok(text),
             Encryption::MD5 => {
                 let mut mac = HmacMd5::new_from_slice(key)?;
                 mac.update(text.as_bytes());
@@ -167,7 +168,7 @@ impl IdBuilder {
         let final_string = self
             .parts
             .iter()
-            .map(|p| p.to_string())
+            .map(|p| p.to_string().map(|x| format!("({})", x)))
             .collect::<Result<String, HWIDError>>()?;
         self.hash.generate_hash(key.as_bytes(), final_string)
     }
@@ -254,6 +255,7 @@ impl IdBuilder {
 mod test {
     use super::*;
     use std::env;
+
     #[test]
     fn every_option_sha256() {
         let mut builder = IdBuilder::new(Encryption::SHA256);
